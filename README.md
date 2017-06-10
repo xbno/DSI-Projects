@@ -1,10 +1,10 @@
 # DSI-Projects:
 Collection of Projects I've done during my Data Science Immersive at General Assembly Boston
 
-- Project 1:
-  - Focus: learning Python, dictionaries, lists, and functions
-- Project 2:
-  - First investigation into datasets. Simple SAT and drug datasets. Focus: Pandas, manipulating dataframes and visualizing distributions and basic stats.
+- Project 1: Python Basics
+  - Focus: Learning dictionaries, lists, and functions
+- Project 2: Simple SAT and drug datasets
+  - Focus: Pandas, manipulating dataframes and visualizing distributions and basic stats.
 - Project 3: Kaggle Competition, Ames Housing Dataset
   - Focus: Linear regression, Regularization, Scaling, Feature Transformation, Principal Component Analysis ,Crossval and Model evaluation metrics. Visual story telling. Model interpretation.
 - Unassigned Project: West Nile Virus Kaggle Competition

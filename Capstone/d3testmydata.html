@@ -1,0 +1,410 @@
+<!-- <!DOCTYPE html>
+<meta charset="utf-8">
+<style>
+
+body {
+  font: 12px Helvetica;
+}
+
+.axis line {
+  fill: none;
+  stroke: #000;
+  shape-rendering: crispEdges;
+}
+
+.x.axis path {
+  display: none;
+}
+
+.line {
+  fill: none;
+  stroke: steelblue;
+  stroke-width: 2px;
+}
+
+</style>
+<body>
+<script src="http://d3js.org/d3.v3.js"></script>
+<script> -->
+
+<!DOCTYPE HTML>
+<meta charset="utf-8">
+<html>
+<head>
+
+<link rel="stylesheet" type="text/css" href="http://fonts.googleapis.com/css?family=Source+Sans+Pro:400italic,600italic,700italic,200,300,400,600,700,900">
+<script src="http://d3js.org/d3.v3.min.js"></script>
+
+<style>
+
+body {
+  font: 12px Helvetica;
+}
+
+#content {
+  margin: 10px;
+  padding: 20px 10px 20px 20px;
+  width: 1200px;
+  text-align: middle;
+  border: 1px solid #ccc;
+}
+
+.axis path,
+.axis line {
+  fill: none;
+  stroke: #000;
+  shape-rendering: crispEdges;
+}
+
+.axis path {
+  fill: none;
+  stroke: #000;
+  shape-rendering: crispEdges;
+}
+
+#chart {
+  margin: 0px;
+  padding: 0px;
+}
+
+h1 {
+  margin: 0;
+  padding: 0;
+  line-height: 1em;
+  font-size: 1.75em;
+  font-weight: 900;
+  color: #000;
+}
+
+p {
+  margin: 5px 0px 0px 0px;
+  padding: 0;
+}
+
+#menu {
+  margin: 5px 0px 0px 0px;
+  padding: 0;
+  display: block;
+}
+
+.axis path, .axis line {
+  fill: none;
+  stroke: #ccc;
+  shape-rendering: crispEdges;
+  border-width: 2px;
+}
+
+.axis line {
+  stroke: #eee;
+  stroke-width: 1;
+  shape-rendering: crispEdges;
+}
+
+.domain {
+  stroke-width: 1px;
+}
+
+path.line {
+  fill: none;
+  stroke-width: 1.5px;
+}
+
+.x.axis .tick text, .y.axis .tick text, .month text {
+  color: #333;
+  font-size: 0.9em;
+  padding: 5px;
+}
+
+.g-baseline line {
+  stroke: #333;
+  stroke-width: 2;
+  shape-rendering: crispEdges;
+}
+
+.month text {
+  display: none;
+}
+
+.month:hover text {
+  display: block;
+}
+
+.month .line {
+  opacity: 0.4;
+}
+
+.month .line:hover {
+  opacity: 1;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div id="content">
+	<h1>Which models forecast housing prices the best, and <em>why?</em></h1>
+	<p>Each city has a unique selling season.
+    San Francisco's season rises gradually in March and extends through July while Boston's season rises rapidly in May and extends through August. </p>
+	<select id="menu">
+		<option value="pct_black">Decomposition</option>
+		<option value="pct_white">ARIMA</option>
+		<option value="pct_teen">Naive Baseline</option>
+		<option value="pct_unmarried">Supervised method</option>
+	</select>
+	<div id="chart"></div>
+	<p>Performance:</p>
+  <p>Moving Average: <em>T+X: 564 RMSE</em></p>
+  <p>Naive Baseline: <em>T+1: 322 RMSE, T+2: 467 RMSE, T+3: 586 RMSE</em></p>
+  <p>ARIMA: <em>&nbsp; T+1: 272 RMSE, T+2: 307 RMSE, T+3: 406 RMSE</em></p>
+  <p>SARIMA: <em>T+1: 234 RMSE, T+2: 312 RMSE, T+3: 438 RMSE</em></p>
+  <p>Trend Seasonality with Predicted Residual: <em>T+1: 170 RMSE, T+2: 183 RMSE, T+3: 192 RMSE</em></p>
+</div>
+
+<script>
+
+var margin = {top: 30, right: 50, bottom: 30, left: 50},
+    width = 1200 - margin.left - margin.right,
+    height = 500 - margin.top - margin.bottom;
+
+var parseDate = d3.time.format("%Y-%m-%d").parse;
+
+var x = d3.time.scale()
+    .range([0, width]);
+
+var y = d3.scale.linear()
+    .range([height, 0]);
+
+var color = d3.scale.category10();
+
+var xAxis = d3.svg.axis()
+    .scale(x)
+    .ticks(5)
+    .innerTickSize(15)
+    .outerTickSize(0)
+    .orient("bottom");
+
+var yAxis = d3.svg.axis()
+    .scale(y)
+    .tickFormat(function(d) { return d;})
+    .ticks(5)
+    .innerTickSize(15)
+    .outerTickSize(0)
+    .orient("left");
+
+var line = d3.svg.line()
+    .interpolate("basis")
+    .x(function(d) { return x(d.date); })
+    .y(function(d) { return y(d.price); });
+
+
+var svg = d3.select("body").append("svg")
+    .attr("width", width + margin.left + margin.right)
+    .attr("height", height + margin.top + margin.bottom)
+  .append("g")
+    .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+d3.tsv("sa_arima_d3.tsv", function(error, data) {
+  color.domain(d3.keys(data[0]).filter(function(key) { return key !== "date"; }));
+
+  data.forEach(function(d) {
+    d.date = parseDate(d.date);
+  });
+
+  var companies = color.domain().map(function(name) {
+    return {
+      name: name,
+      values: data.map(function(d) {
+        return {date: d.date, price: +d[name]};
+      })
+    };
+  });
+
+
+  x.domain(d3.extent(data, function(d) { return d.date; }));
+
+  y.domain([
+    d3.min(companies, function(c) { return d3.min(c.values, function(v) { return v.price; }); }),
+    d3.max(companies, function(c) { return d3.max(c.values, function(v) { return v.price; }); })
+  ]);
+
+  svg.append("g")
+      .attr("class", "x axis")
+      .attr("transform", "translate(0," + height + ")")
+      .call(xAxis);
+
+  svg.append("g")
+      .attr("class", "y axis")
+      .call(yAxis);
+
+
+  svg.append("line")
+        .attr(
+        {
+            "class":"horizontalGrid",
+            "x1" : 0,
+            "x2" : width,
+            "y1" : y(0),
+            "y2" : y(0),
+            "fill" : "none",
+            "shape-rendering" : "crispEdges",
+            "stroke" : "black",
+            "stroke-width" : "1px",
+            "stroke-dasharray": ("3, 3")
+        });
+
+    svg.append("circle")
+          .attr("cx", 30)
+          .attr("cy", 15)
+          .attr("r", 5)
+          .style("fill", "rgb(255,000,000)");
+
+    svg.append("circle")
+          .attr("cx", 30)
+          .attr("cy", 30)
+          .attr("r", 5)
+          .style("fill", "rgb(255,165,000)");
+
+    svg.append("circle")
+          .attr("cx", 30)
+          .attr("cy", 45)
+          .attr("r", 5)
+          .style("fill", "rgb(000,255,000)");
+
+    svg.append("circle")
+          .attr("cx", 30)
+          .attr("cy", 60)
+          .attr("r", 5)
+          .style("fill", "rgb(000,191,255)");
+
+  // svg.append("circle")
+  //       .attr(
+  //       {
+  //           "x1" : 200,
+  //           "x2" : 200,
+  //           "y1" : 200,
+  //           "y2" : 200,
+  //           "fill" : "none",
+  //           "shape-rendering" : "crispEdges",
+  //           "stroke" : "black",
+  //           "stroke-width" : "1px",
+  //           "stroke-dasharray": ("3, 3")
+  //       });
+
+  svg.append("text")
+  	.attr("x", 50)
+  	.attr("y", 20)
+  	.attr("class", "legend")
+  	//.style("fill", "rgb(255,000,000)")
+    //.text(companies, function(d) { return d.name; })
+  	//.text("San Diego, CA metro area Median Sale Price");
+    .text("Target: Median Sale Price");
+
+  svg.append("text")
+  	.attr("x", 50)
+  	.attr("y", 35)
+  	.attr("class", "legend")
+  	//.style("fill", "rgb(255,165,000)")
+  	.text("ARIMA T+1");
+
+  svg.append("text")
+  	.attr("x", 50)
+  	.attr("y", 50)
+  	.attr("class", "legend")
+  	//.style("fill", "rgb(000,255,000)")
+  	.text("ARIMA T+2");
+
+  svg.append("text")
+  	.attr("x", 50)
+  	.attr("y", 65)
+  	.attr("class", "legend")
+  	//.style("fill", "rgb(000,191,255)")
+  	.text("ARIMA T+3");
+
+  var company = svg.selectAll(".company")
+      .data(companies)
+    .enter().append("g")
+      .text(function(d) { return d.name; })
+      .attr("class", "company");
+
+  // var companyname = svg.append("g").selectAll(".company")
+  //     .data(data.filter(function(d) { return d.date === '2016-03-31'; }))
+  //   .enter().append("text")
+  //     .attr("class", "company")
+  //     .attr("x", value.x)
+  //     .attr("y", value.y)
+  //     .attr("dx", 3)
+  //     .attr("dy", ".32em")
+  //     .text(function(d) { return d.name; });
+
+  var path = svg.selectAll(".company").append("path")
+      .attr("class", "line")
+      .attr("d", function(d) { return line(d.values); })
+      .style("stroke", function(d) { if (d.name == "Median Sale Price")
+                                        {return "rgb(255,000,000)"}
+                                     if (d.name == "T+1")
+                                        {return "rgb(255,165,000)"}
+                                     if (d.name == "T+2")
+                                        {return "rgb(000,255,000)"}
+                                     if (d.name == "T+3")
+                                        {return "rgb(000,191,255)"}
+                                      else {return "#000";}
+                                         });
+
+
+
+  //var totalLength = path.node().getTotalLength();
+/*
+console.log(path);
+console.log(path.node());
+console.log(path[0][0]);
+console.log(path[0][1]);
+*/
+var totalLength = [path[0][0].getTotalLength(), path[0][1].getTotalLength(),path[0][2].getTotalLength(),path[0][3].getTotalLength()];
+
+console.log(totalLength);
+
+  d3.select("#a text")
+    .style("display", "block");
+
+   //
+  //  d3.select(path[0][0])
+  //     .attr("stroke-dasharray", totalLength[0] + " " + totalLength[0] )
+  //     .attr("stroke-dashoffset", totalLength[0])
+  //     .transition()
+  //       .delay(1500)
+  //       .duration(5000)
+  //       .ease("linear")
+  //       .attr("stroke-dashoffset", 0);
+
+   d3.select(path[0][1])
+      .attr("stroke-dasharray", totalLength[1] + " " + totalLength[1] )
+      .attr("stroke-dashoffset", totalLength[1])
+      .text("ss")
+      .transition()
+        .delay(2000)
+        .duration(15000)
+        .ease("linear")
+        .attr("stroke-dashoffset", 0);
+
+  d3.select(path[0][2])
+     .attr("stroke-dasharray", totalLength[2] + " " + totalLength[2] )
+     .attr("stroke-dashoffset", totalLength[3])
+     .transition()
+       .delay(1000)
+       .duration(15000)
+       .ease("linear")
+       .attr("stroke-dashoffset", 0);
+
+  d3.select(path[0][3])
+     .attr("stroke-dasharray", totalLength[3] + " " + totalLength[3] )
+     .attr("stroke-dashoffset", totalLength[3])
+     .transition()
+       .duration(15000)
+       .ease("linear")
+       .attr("stroke-dashoffset", 0);
+
+});
+
+</script>
